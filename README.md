@@ -11,7 +11,7 @@ Pulls prediction markets from Polymarket + Kalshi, normalizes to a unified schem
 
 ## Features
 
-- **Multi-source** — Kalshi REST + Polymarket CLOB clients
+- **Multi-source** — public Kalshi REST + Polymarket Gamma clients
 - **Fuzzy matching** — rapidfuzz token sort ratio with configurable threshold
 - **Arb detection** — spread calculation with fee-aware net arb
 - **Rich terminal** — ranked table of divergences with match confidence
@@ -30,7 +30,7 @@ pip install -e .
 cp .env.example .env
 ```
 
-Add your Kalshi and/or Polymarket API keys to `.env`. Without keys, use `--dry-run`.
+Public market data requires no API keys. `.env` optionally overrides `KALSHI_API_URL` and `POLYMARKET_API_URL` (Gamma). Use `--dry-run` for an offline demo.
 
 ### 2. Find divergences
 
@@ -50,37 +50,32 @@ python -m odds.cli compare --min-spread 0.03 --match-threshold 80
 ```
 Cross-Platform Divergences
 
-  #  Market                          Kalshi  Polymarket  Spread  Match  Net Arb
-  1  Trump wins 2028 popular vote     0.38        0.31   +7.0%    94%    +2.1%
-  2  Fed rate cut before Sep 2025     0.62        0.68   −6.0%    91%    −0.9%
-  3  Bitcoin > $150K by Dec 2025      0.22        0.28   −6.0%    89%    −1.2%
-
-5 matched markets | min spread: 5% | fees: Kalshi 7%, Polymarket 2%
+  Market                            Kalshi  Polymarket  Spread  Fee-adjusted estimate  Match
+  Will GPT-5 launch by Dec 2026?       72%       65%       7.0%          3.0%             100%
 ```
+
+This offline example uses synthetic fixture prices and the default 2% fee assumption per side.
 
 ## How It Works
 
 ### Market Matching
 
 Markets on Kalshi and Polymarket describe the same events with different wording. The aggregator:
-1. **Normalizes** question text (lowercase, strip dates, remove platform-specific prefixes)
+1. **Normalizes** question text (lowercase, punctuation, repeated spaces), preserving event numbers
 2. **Fuzzy-matches** using `rapidfuzz.fuzz.token_sort_ratio` with a configurable threshold (default: 80%)
-3. **Validates** matched pairs by checking category and resolution date proximity
+3. **Rejects** different numeric conditions and known close dates more than three days apart
+
+Matches are candidates, not verified equivalent contracts. Missing dates are allowed, and conservative number checks can reject differently worded equivalent dates. Review resolution rules before interpreting a divergence. Live comparison reads one bounded page per source (`--limit`, default 100, maximum 1000), not the complete inventories.
 
 ### Spread & Arb Calculation
 
-- **Spread** = `price_kalshi − price_polymarket` (positive = Kalshi is higher)
-- **Net arb** = spread minus platform fees (Kalshi ~7% on profit, Polymarket ~2%)
-- A positive net arb means you could theoretically buy on the cheaper platform and sell on the more expensive one for a profit after fees
+- **Spread** = absolute difference between the two YES prices; direction is recorded separately
+- **Fee-adjusted estimate** = `max(0, spread − 2 × fee_rate)`
+- This estimate uses observed prices and an assumed flat rate; it does not establish executable arbitrage
 
 ### Fee Model
 
-| Platform | Fee Structure |
-|----------|--------------|
-| Kalshi | ~7% on net profit |
-| Polymarket | ~2% on winning shares |
-
-Net arb accounts for both sides. Most small spreads become negative after fees.
+`--fee-rate` sets an illustrative flat fee per side (default 0.02). It is not either platform's current fee schedule. The result excludes order-book depth, bid/ask differences, slippage, and settlement-rule differences; use actual platform fees and executable quotes for further research. Polymarket Gamma prices are reference outcome prices, while Kalshi uses the available YES ask.
 
 ## Architecture
 
@@ -93,7 +88,7 @@ src/odds/
 ├── normalize.py        # Question text normalization
 └── sources/
     ├── kalshi.py        # Kalshi REST API client
-    └── polymarket.py    # Polymarket CLOB client
+    └── polymarket.py    # Polymarket Gamma client
 ```
 
 ## Roadmap

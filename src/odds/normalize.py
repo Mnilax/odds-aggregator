@@ -1,7 +1,10 @@
 """Normalize markets to unified schema."""
 from __future__ import annotations
+
 import re
+
 from odds.models import Market
+
 
 def normalize_question(q: str) -> str:
     """Normalize question text for matching."""

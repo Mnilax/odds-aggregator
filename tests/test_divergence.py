@@ -36,7 +36,7 @@ def test_normalize_question():
 
 def test_match_markets():
     a = [Market(id="1", question="Will GPT-5 be released in 2026?", yes_price=0.7, source="k")]
-    b = [Market(id="2", question="GPT-5 released before 2027", yes_price=0.6, source="p")]
+    b = [Market(id="2", question="GPT-5 released in 2026", yes_price=0.6, source="p")]
     pairs = match_markets(a, b, threshold=40)
     assert len(pairs) == 1
     assert pairs[0].spread > 0

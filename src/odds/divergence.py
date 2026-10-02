@@ -1,13 +1,16 @@
 """Divergence and arb calculations — pure functions."""
 from __future__ import annotations
-from odds.models import MatchedPair, DivergenceResult
+
+from odds.models import DivergenceResult, MatchedPair
 
 DEFAULT_FEE_RATE = 0.02  # 2% per side
 
 def calculate_divergence(pair: MatchedPair, fee_rate: float = DEFAULT_FEE_RATE) -> DivergenceResult:
     """Calculate spread and potential arb for a matched pair."""
+    if not 0 <= fee_rate <= 1:
+        raise ValueError("fee_rate must be between 0 and 1")
     spread = pair.market_a.yes_price - pair.market_b.yes_price
-    direction = "a_higher" if spread > 0 else "b_higher"
+    direction = "a_higher" if spread > 0 else "b_higher" if spread < 0 else "equal"
     gross_arb = abs(spread)
     net_arb = max(0, gross_arb - 2 * fee_rate)
     return DivergenceResult(pair=pair, spread=round(abs(spread), 4), direction=direction, potential_arb=round(net_arb, 4))
